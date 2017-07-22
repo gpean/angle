@@ -244,6 +244,9 @@ const ShCompileOptions SH_SELECT_VIEW_IN_NV_GLSL_VERTEX_SHADER = UINT64_C(1) << 
 // ShBuiltInResources in vertex shaders.
 const ShCompileOptions SH_CLAMP_POINT_SIZE = UINT64_C(1) << 35;
 
+const ShCompileOptions SH_CONDITIONAL_HEADER = UINT64_C(1) << 60;
+const ShCompileOptions SH_PRESERVE_UNIFORM_ORDER = UINT64_C(1) << 61;
+
 // Defines alternate strategies for implementing array index clamping.
 enum ShArrayIndexClampingStrategy
 {

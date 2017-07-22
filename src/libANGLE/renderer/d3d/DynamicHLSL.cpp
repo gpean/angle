@@ -40,10 +40,12 @@ class DecorateVariable final : angle::NonCopyable
 
 std::ostream &operator<<(std::ostream &o, const DecorateVariable &dv)
 {
+    /* XXX make it configurable
     if (dv.getName().compare(0, 3, "gl_") != 0)
     {
         o << "_";
     }
+    */
     o << dv.getName();
     return o;
 }

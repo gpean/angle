@@ -252,21 +252,46 @@ void UniformHLSL::outputUniform(TInfoSinkBase &out,
 
 void UniformHLSL::uniformsHeader(TInfoSinkBase &out,
                                  ShShaderOutput outputType,
-                                 const ReferencedSymbols &referencedUniforms)
+                                 const ReferencedSymbols &referencedUniforms,
+                                 bool conditionalHeader,
+                                 bool preserveOrder)
 {
+    if (conditionalHeader) { out << "#ifdef ANGLE_UNIFORMS\n"; }
+
     if (!referencedUniforms.empty())
     {
         out << "// Uniforms\n\n";
     }
+
     // In the case of HLSL 4, sampler uniforms need to be grouped by type before the code is
     // written. They are grouped based on the combination of the HLSL texture type and
     // HLSL sampler type, enumerated in HLSLTextureSamplerGroup.
     TVector<TVector<const TIntermSymbol *>> groupedSamplerUniforms(HLSL_TEXTURE_MAX + 1);
     TMap<const TIntermSymbol *, TString> samplerInStructSymbolsToAPINames;
+
     for (auto &uniformIt : referencedUniforms)
     {
         // Output regular uniforms. Group sampler uniforms by type.
         const TIntermSymbol &uniform = *uniformIt.second;
+        const TType &type            = uniform.getType();
+        const TName &name            = uniform.getName();
+
+        if (outputType == SH_HLSL_4_1_OUTPUT && IsSampler(type.getBasicType()))
+        {}
+        else if (outputType == SH_HLSL_4_0_FL9_3_OUTPUT && IsSampler(type.getBasicType()))
+        {}
+        else
+        {
+            unsigned int registerIndex = assignUniformRegister(type, name.getString(), nullptr);
+            outputUniform(out, type, name, registerIndex);
+        }
+    }
+
+    if (conditionalHeader) { out << "#endif //ANGLE_UNIFORMS\n"; }
+
+    if (conditionalHeader) { out << "#ifdef ANGLE_TEXTURE_UNIFORMS\n"; }
+
+    auto processUniform = [&](TIntermSymbol const& uniform) {
         const TType &type            = uniform.getType();
         const TName &name            = uniform.getName();
 
@@ -318,8 +343,22 @@ void UniformHLSL::uniformsHeader(TInfoSinkBase &out,
                     }
                 }
             }
-            unsigned int registerIndex = assignUniformRegister(type, name.getString(), nullptr);
-            outputUniform(out, type, name, registerIndex);
+        }
+    };
+
+    if (preserveOrder) {
+        for (auto&& u : mUniforms) {
+            auto uniformIt = referencedUniforms.find(TString(u.name.c_str()));
+            if (uniformIt == referencedUniforms.end()) {
+                continue;
+            }
+            TIntermSymbol const& uniform = *uniformIt->second;
+            processUniform(uniform);
+        }
+    } else {
+        for (auto &uniformIt : referencedUniforms) {
+            TIntermSymbol const& uniform = *uniformIt.second;
+            processUniform(uniform);
         }
     }
 
@@ -335,6 +374,8 @@ void UniformHLSL::uniformsHeader(TInfoSinkBase &out,
                 samplerInStructSymbolsToAPINames, &groupTextureRegisterIndex);
         }
     }
+
+    if (conditionalHeader) { out << "#endif //ANGLE_TEXTURE_UNIFORMS\n"; }
 }
 
 void UniformHLSL::samplerMetadataUniforms(TInfoSinkBase &out, const char *reg)

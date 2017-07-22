@@ -28,7 +28,9 @@ class UniformHLSL : angle::NonCopyable
     void reserveUniformBlockRegisters(unsigned int registerCount);
     void uniformsHeader(TInfoSinkBase &out,
                         ShShaderOutput outputType,
-                        const ReferencedSymbols &referencedUniforms);
+                        const ReferencedSymbols &referencedUniforms,
+                        bool conditionalHeader,
+                        bool preserveOrder);
 
     // Must be called after uniformsHeader
     void samplerMetadataUniforms(TInfoSinkBase &out, const char *reg);

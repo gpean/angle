@@ -307,6 +307,8 @@ TString OutputHLSL::structInitializerString(int indent, const TType &type, const
 
 void OutputHLSL::header(TInfoSinkBase &out, const BuiltInFunctionEmulator *builtInFunctionEmulator)
 {
+    bool conditionalHeader = (mCompileOptions & SH_CONDITIONAL_HEADER) != 0;
+
     TString varyings;
     TString attributes;
     TString flaggedStructs;
@@ -353,9 +355,13 @@ void OutputHLSL::header(TInfoSinkBase &out, const BuiltInFunctionEmulator *built
 
     out << mStructureHLSL->structsHeader();
 
-    mUniformHLSL->uniformsHeader(out, mOutputType, mReferencedUniforms);
-    out << mUniformHLSL->uniformBlocksHeader(mReferencedUniformBlocks);
+    bool preserveOrder = (mCompileOptions & SH_PRESERVE_UNIFORM_ORDER) != 0;
+    mUniformHLSL->uniformsHeader(out, mOutputType, mReferencedUniforms, conditionalHeader, preserveOrder);
 
+    if (conditionalHeader) { out << "#ifdef ANGLE_UNIFORM_BLOCKS\n"; }
+    out << mUniformHLSL->uniformBlocksHeader(mReferencedUniformBlocks);
+    if (conditionalHeader) { out << "#endif //ANGLE_UNIFORM_BLOCKS\n"; }
+    
     if (!mEqualityFunctions.empty())
     {
         out << "\n// Equality functions\n\n";
@@ -410,9 +416,13 @@ void OutputHLSL::header(TInfoSinkBase &out, const BuiltInFunctionEmulator *built
         const bool usingMRTExtension            = (iter != mExtensionBehavior.end() &&
                                         (iter->second == EBhEnable || iter->second == EBhRequire));
 
+        if (conditionalHeader) { out << "#ifdef ANGLE_FRAGMENT_HEADER\n"; }
+
+        if (conditionalHeader) { out << "#ifdef ANGLE_VARYINGS\n"; }
         out << "// Varyings\n";
         out << varyings;
         out << "\n";
+        if (conditionalHeader) { out << "#endif //ANGLE_VARYINGS\n"; }
 
         if (mShaderVersion >= 300)
         {
@@ -562,9 +572,15 @@ void OutputHLSL::header(TInfoSinkBase &out, const BuiltInFunctionEmulator *built
         {
             out << "#define GL_USES_FRAG_DATA\n";
         }
+
+        if (conditionalHeader) { out << "#endif //ANGLE_FRAGMENT_HEADER\n"; }
     }
     else if (mShaderType == GL_VERTEX_SHADER)
     {
+        if (conditionalHeader) { out << "#ifdef ANGLE_VERTEX_HEADER\n"; }
+        
+        if (conditionalHeader) { out << "#ifdef ANGLE_ATTRIBUTES\n"; }
+
         out << "// Attributes\n";
         out << attributes;
         out << "\n"
@@ -585,10 +601,14 @@ void OutputHLSL::header(TInfoSinkBase &out, const BuiltInFunctionEmulator *built
             out << "static int gl_VertexID;";
         }
 
+        if (conditionalHeader) { out << "#endif //ANGLE_ATTRIBUTES\n"; }
+
+        if (conditionalHeader) { out << "#ifdef ANGLE_VARYINGS\n"; }
         out << "\n"
                "// Varyings\n";
         out << varyings;
         out << "\n";
+        if (conditionalHeader) { out << "#endif //ANGLE_VARYINGS\n"; }
 
         if (mUsesDepthRange)
         {
@@ -653,10 +673,14 @@ void OutputHLSL::header(TInfoSinkBase &out, const BuiltInFunctionEmulator *built
             out << flaggedStructs;
             out << "\n";
         }
+
+        if (conditionalHeader) { out << "#endif //ANGLE_VERTEX_HEADER\n"; }
     }
     else  // Compute shader
     {
         ASSERT(mShaderType == GL_COMPUTE_SHADER);
+
+        if (conditionalHeader) { out << "#ifdef ANGLE_COMPUTE_HEADER\n"; }
 
         out << "cbuffer DriverConstants : register(b1)\n"
                "{\n";
@@ -690,12 +714,18 @@ void OutputHLSL::header(TInfoSinkBase &out, const BuiltInFunctionEmulator *built
         {
             out << "static uint gl_LocalInvocationIndex = uint(0);\n";
         }
+
+        if (conditionalHeader) { out << "#endif //ANGLE_COMPUTE_HEADER\n"; }
     }
+
+    if (conditionalHeader) { out << "#ifdef ANGLE_TEXTURE_FUNCTION\n"; }
 
     bool getDimensionsIgnoresBaseLevel =
         (mCompileOptions & SH_HLSL_GET_DIMENSIONS_IGNORES_BASE_LEVEL) != 0;
     mTextureFunctionHLSL->textureFunctionHeader(out, mOutputType, getDimensionsIgnoresBaseLevel);
 
+    if (conditionalHeader) { out << "#endif //ANGLE_TEXTURE_FUNCTION\n"; }
+    
     if (mUsesFragCoord)
     {
         out << "#define GL_USES_FRAG_COORD\n";
